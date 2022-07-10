@@ -26,6 +26,11 @@ services:
   px4:
     image: "utnpiddrones/px4:latest"
 
+    environment:
+      # Necesarias para el uso de la GUI.
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+
     # Se definen las variables de ambiente en un archivo llamado ".env".
     env_file: .env
 
