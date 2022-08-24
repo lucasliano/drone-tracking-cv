@@ -51,6 +51,7 @@ services:
 
     volumes:
       - ${PWD}/entrypoint.sh:/entrypoint.sh
+      - ${PWD}/my_pkg:/root/px4_ros_com_ros2/src/my_pkg
       
     command: /bin/bash 
 
