@@ -17,8 +17,8 @@ services:
 
     env_file: .env
 
-    volumes:
-      - ${X11_VOLUME}
+    #volumes:
+      #- ${X11_VOLUME}
       # - ${PWD}/px4-rc.mavlink:/root/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/px4-rc.mavlink
       # - ${PWD}/px4-rc.rtps:/root/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/px4-rc.rtps
       # - ${PWD}/px4-rc.simulator:/root/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/px4-rc.simulator
@@ -73,8 +73,8 @@ services:
 
     container_name: ${QGROUND_CONT_NAME}
 
-    volumes:
-      - ${X11_VOLUME}
+    #volumes:
+      #- ${X11_VOLUME}
 
     networks:
       px4_ros_com_ros2_net:
