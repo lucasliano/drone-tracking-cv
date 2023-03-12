@@ -2,15 +2,12 @@
 	path = PX4-Autopilot
 	url = https://github.com/utnpiddrones/PX4-Autopilot.git
     branch = main
-[submodule "px4_msgs"]
+[submodule "src/px4_msgs"]
 	path = src/px4_msgs
 	url = https://github.com/PX4/px4_msgs.git
-    branch = main
-[submodule "px4_ros_com"]
+[submodule "src/px4_ros_com"]
 	path = src/px4_ros_com
 	url = https://github.com/PX4/px4_ros_com.git
-    branch = main
-[submodule "ros_gz"]
+[submodule "src/ros_gz"]
 	path = src/ros_gz
 	url = https://github.com/gazebosim/ros_gz.git
-    branch = ros2
