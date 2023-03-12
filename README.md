@@ -140,6 +140,8 @@ Estos son los puertos que se usan durante la simulación de Gazebo, definidos en
 
 El paquete binario `ros-humble-ros-gz-bridge` sirve para la versión de ROS2 Humble, y la versión de Gazebo Fortress, según el [repositorio de GitHub](https://github.com/gazebosim/ros_gz/tree/ros2/ros_gz_bridge). Por lo tanto, se compilan desde el código fuente.
 
+En los docker-compose, se agrega como volumen la carpeta .git: `${PWD}/../../.git:/home/user/.git`. Esto es necesario para la compilación, pues exige que PX4-Autopilot sea un repositorio de git, y hay problemas con el hecho de que sea un submódulo de este repositorio, en vez de un repo independiente.
+
 ## Links útiles
 
 * Integración entre ROS2 y Gazebo Garden: [ros_gz_bridge](https://gazebosim.org/docs/garden/ros2_integration). [Repositorio de GitHub](https://github.com/gazebosim/ros_gz/tree/ros2/ros_gz_bridge).

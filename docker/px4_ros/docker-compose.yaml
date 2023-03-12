@@ -61,6 +61,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:ro
 
       - ${PWD}/../../PX4-Autopilot:/home/user/PX4-Autopilot
+      - ${PWD}/../../.git:/home/user/.git
       - ${PWD}/px4/entrypoint.sh:/entrypoint.sh
 
     privileged: true
