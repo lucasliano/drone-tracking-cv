@@ -9,8 +9,9 @@ echo "2. Launch example subscriber."
 echo "3. Launch example publisher."
 echo "4. Build ROS2 packages."
 echo "5. Run QGroundControl."
-echo "6. Interactive terminal on ROS2 container."
-echo "7. Interactive terminal on PX4 container."
+echo "6. Rviz."
+echo "7. Interactive terminal on ROS2 container."
+echo "8. Interactive terminal on PX4 container."
 echo "q. Exit."
 
 read -p "Select option: " -r -n 1 option
@@ -46,9 +47,11 @@ case $option in
 
     };;
 
-    6) command="/bin/bash";;
+    6) command="ros2 run rviz2 rviz2";;
 
-    7) {
+    7) command="/bin/bash";;
+
+    8) {
         command="/bin/bash"
         docker container exec -ti -u "$(id -un)" "${px4_cont_name}" /bin/bash -c "
             source /entrypoint.sh; \
