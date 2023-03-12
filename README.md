@@ -4,6 +4,12 @@ Simulación de [Gazebo Garden](https://gazebosim.org/home) con drones usando el 
 
 ## Utilización
 
+Este repositorio utiliza submódulos. Asegurarse que están correctamente inicializados ejecutando el script de instalación:
+
+```bash
+./sanity_check.sh
+```
+
 Para ejecutar solo PX4:
 
 ```bash
