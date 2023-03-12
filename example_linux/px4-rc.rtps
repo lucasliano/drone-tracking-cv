@@ -1,5 +1,0 @@
-#!/bin/sh
-# shellcheck disable=SC2154
-# Path: /root/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/px4-rc.rtps
-
-micrortps_client start -t ${RTPS_PROTOCOL} -r $((${RTPS_RX_PORT}+2*px4_instance)) -s $((${RTPS_TX_PORT}+2*px4_instance)) -i ${ROS2_IP} -f

@@ -1,8 +1,0 @@
-#!/bin/sh
-# shellcheck disable=SC2154
-# Path: /root/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/px4-rc.params
-
-#param set-default MAV_SYS_ID $((px4_instance+1))
-#param set-default IMU_INTEG_RATE 250
-param set-default MAV_0_BROADCAST 1
-param set-default MAV_1_BROADCAST 1
