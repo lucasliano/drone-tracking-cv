@@ -1,0 +1,30 @@
+services:
+  px4:
+    image: ${px4_image}
+
+    container_name: ${px4_cont_name}
+
+    command: sleep 5d
+
+    environment:
+      # Required for GUI
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - uid=${uid}
+      - gid=${gid}
+      - username=${username}
+      - groupname=${groupname}
+
+    entrypoint: /entrypoint.sh
+
+    volumes:
+      # Required for GUI
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+
+      - ${PWD}/../../PX4-Autopilot:/home/user/PX4-Autopilot
+      - ${PWD}/entrypoint.sh:/entrypoint.sh
+
+    privileged: true
+
+    network_mode: "host"
+

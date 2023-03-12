@@ -1,0 +1,68 @@
+services:
+  ros2:
+    image: ${ros2_image}
+
+    build:
+      context: "${PWD}/../../"
+      dockerfile: "${PWD}/ros2/Dockerfile"
+
+    container_name: ${ros2_cont_name}
+
+    command: sleep 5d
+
+    environment:
+      # Required for GUI
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - uid=${uid}
+      - gid=${gid}
+      - username=${username}
+      - groupname=${groupname}
+
+    entrypoint: /entrypoint.sh
+
+    volumes:
+      # Required for GUI
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+
+      - ${PWD}/../../PX4-Autopilot:/home/user/PX4-Autopilot
+      - ${PWD}/ros2/entrypoint.sh:/entrypoint.sh
+      - ${PWD}/../../src:/home/user/ros2_ws/src
+      - ${PWD}/ros2/container_outputs/build:/home/user/ros2_ws/build
+      - ${PWD}/ros2/container_outputs/install:/home/user/ros2_ws/install
+    privileged: true
+
+    network_mode: "host"
+
+  px4:
+    image: ${px4_image}
+
+    build:
+      context: "${PWD}/../../"
+      dockerfile: "${PWD}/px4/Dockerfile"
+
+    container_name: ${px4_cont_name}
+
+    command: make px4_sitl gz_drone_utn
+
+    environment:
+      # Required for GUI
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - uid=${uid}
+      - gid=${gid}
+      - username=${username}
+      - groupname=${groupname}
+
+    entrypoint: /entrypoint.sh
+
+    volumes:
+      # Required for GUI
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+
+      - ${PWD}/../../PX4-Autopilot:/home/user/PX4-Autopilot
+      - ${PWD}/px4/entrypoint.sh:/entrypoint.sh
+
+    privileged: true
+
+    network_mode: "host"

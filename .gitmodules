@@ -2,8 +2,11 @@
 	path = PX4-Autopilot
 	url = ./PX4-Autopilot/
 [submodule "px4_msgs"]
-	path = px4_msgs
-	url = ./px4_msgs
+	path = src/px4_msgs
+	url = ./src/px4_msgs
 [submodule "px4_ros_com"]
-	path = px4_ros_com
-	url = ./px4_ros_com
+	path = src/px4_ros_com
+	url = ./src/px4_ros_com
+[submodule "ros_gz"]
+	path = src/ros_gz
+	url = ./src/ros_gz
