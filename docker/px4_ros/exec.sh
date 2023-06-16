@@ -13,6 +13,7 @@ echo "6. Rviz."
 echo "7. Interactive terminal on ROS2 container."
 echo "8. Interactive terminal on PX4 container."
 echo "9. Build tracker package."
+echo "c. Clean ROS2 packages."
 echo "q. Exit."
 
 read -p "Select option: " -r -n 1 option
@@ -61,6 +62,8 @@ case $option in
     };;
 
     9) command="colcon build --symlink-install --packages-select tracker";;
+
+    c) command="rm -rf build/ install/ log/";;
 
     *) {
         echo "Exiting..."
