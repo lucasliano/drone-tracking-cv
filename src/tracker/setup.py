@@ -21,7 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'comms = tracker.comms:main',
-            'control = tracker.bot_controller:main',
+            'control = tracker.joystick:main',
         ],
     },
 )
