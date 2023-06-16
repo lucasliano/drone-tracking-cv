@@ -1,3 +1,4 @@
 QGroundControl.AppImage
 docker/px4_ros/ros2/container_outputs/*
 !docker/px4_ros/ros2/container_outputs/.gitkeep
+__pycache__/
