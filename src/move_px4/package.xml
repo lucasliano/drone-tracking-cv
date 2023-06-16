@@ -3,13 +3,14 @@
 <package format="3">
   <name>move_px4</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="lucas@todo.todo">lucas</maintainer>
+  <description>ROS2 Node for PX4</description>
+  <maintainer email="lliano@frba.utn.edu.ar">Lucas Liaño</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>px4_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
