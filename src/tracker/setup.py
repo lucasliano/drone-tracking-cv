@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'move_px4'
+package_name = 'tracker'
 
 setup(
     name=package_name,
@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'px4bot = move_px4.px4bot:main',
+            'comms = tracker.comms:main',
+            'control = tracker.bot_controller:main',
         ],
     },
 )

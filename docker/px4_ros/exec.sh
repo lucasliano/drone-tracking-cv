@@ -12,7 +12,7 @@ echo "5. Run QGroundControl."
 echo "6. Rviz."
 echo "7. Interactive terminal on ROS2 container."
 echo "8. Interactive terminal on PX4 container."
-echo "9. Build move_px4 package."
+echo "9. Build tracker package."
 echo "q. Exit."
 
 read -p "Select option: " -r -n 1 option
@@ -60,7 +60,7 @@ case $option in
         exit 0
     };;
 
-    9) command="colcon build --symlink-install --packages-select move_px4";;
+    9) command="colcon build --symlink-install --packages-select tracker";;
 
     *) {
         echo "Exiting..."

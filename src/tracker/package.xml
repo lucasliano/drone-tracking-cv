@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>move_px4</name>
+  <name>tracker</name>
   <version>0.0.0</version>
   <description>ROS2 Node for PX4</description>
   <maintainer email="lliano@frba.utn.edu.ar">Lucas Liaño</maintainer>
