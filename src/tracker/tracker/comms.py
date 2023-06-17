@@ -6,21 +6,21 @@ from rclpy.clock import Clock
 from px4_msgs.msg import OffboardControlMode
 from px4_msgs.msg import TrajectorySetpoint
 from px4_msgs.msg import VehicleCommand
-from px4_msgs.msg import VehicleStatus
+
+from std_msgs import Bool
 
 
 # Imports personalizados
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 
-
-class PX4Controller(Node):
+class PX4Comms(Node):
     def __init__(self):
-        super().__init__('PX4Controller')
+        super().__init__('PX4Comms')
 
         # --- Propiedades del drone ---
         self.armed = False
-
-
+        self.mode_joystick = True
+        self.setpoints = []
 
         # --- Definimos un perfil para settear la calidad de servicio ---
         qos_profile = QoSProfile(
@@ -48,22 +48,33 @@ class PX4Controller(Node):
         )
 
         # --- Inicializamos los subscribers ---
-        self.status_sub = self.create_subscription(
-            msg_type    = VehicleStatus,
-            topic       = '/fmu/out/vehicle_status',
-            callback    = self.vehicle_status_callback,
+        self.control_sub = self.create_subscription(
+            msg_type    = TrajectorySetpoint,
+            topic       = '/tracker/control_system/setpoint',
+            callback    = self.control_system_callback,
             qos_profile = qos_profile
         )
 
+        self.joystick_sub = self.create_subscription(
+            msg_type    = TrajectorySetpoint,
+            topic       = '/tracker/joystick/setpoint',
+            callback    = self.joystick_callback,
+            qos_profile = qos_profile
+        )
 
-        # TODO: Se deben hacer tareas que no sean bloqueantes. No hay scheduler.
+        self.mode_sub = self.create_subscription(
+            msg_type    = Bool,
+            topic       = '/tracker/joystick/mode',
+            callback    = self.mode_callback,
+            qos_profile = qos_profile
+        )
+
         # --- Configuración TASK 1 ---
-        self.timer_task1 = self.create_timer(0.1 , self.task1)
+        self.timer_task1 = self.create_timer(0.25 , self.task1) # Freq = 4Hz
         self._task1_counter = 0
 
         # --- Configuración TASK 2 ---
-        self.timer_task2 = self.create_timer(10 , self.task2)
-        self.pos = 1
+        self.timer_task2 = self.create_timer(0.1 , self.task2)
 
 
     def task1(self):
@@ -81,15 +92,40 @@ class PX4Controller(Node):
             self._task1_counter += 1
 
     def task2(self):
-        if self.armed:
-            self.publish_trajectory_setpoint(
-                x   = 0,
-                y   = 0,
-                z   = self.pos,
-                yaw = 0,
-            )
-            self.pos = self.pos + 1
+        if self.armed and len(self.setpoints) != 0:
+            new_setpoint = self.setpoints.pop()
+            self.trajectory_setpoint_publisher.publish(new_setpoint)
+            self.get_logger().info("Trajectory Setpoint sent")
 
+            
+            # TODO: Esto iria en el joystick y en el control_system
+            # self.publish_trajectory_setpoint(
+            #     x   = new_setpoint.x,
+            #     y   = new_setpoint.y,
+            #     z   = new_setpoint.z,
+            #     yaw = new_setpoint.yaw,
+            # )
+
+    def mode_callback(self, msg):
+        '''
+        Este es el callback del subscriber para el topic '/tracker/joystick/mode'.
+        '''
+        self.mode_joystick = bool(msg.data)
+        self.get_logger().info(f"Mode Switched to: {'Joystick' if self.mode_joystick else 'Control System'}")
+
+    def joystick_callback(self, msg):
+        '''
+        Este es el callback del subscriber para el topic '/tracker/joystick/setpoint'.
+        '''
+        if self.mode_joystick:
+            self.setpoints.insert(msg)
+
+    def control_system_callback(self, msg):
+        '''
+        Este es el callback del subscriber para el topic '/tracker/control_system/setpoint'.
+        '''
+        if not self.mode_joystick:
+            self.setpoints.insert(msg)
 
     def alive_signal(self):
         '''
@@ -104,14 +140,6 @@ class PX4Controller(Node):
         msg.body_rate = False
         msg.timestamp = int(Clock().now().nanoseconds / 1000) # time in microseconds
         self.offboard_publisher.publish(msg)
-
-    def vehicle_status_callback(self, msg):
-        '''
-        Este es el callback del subscriber.
-        '''
-        # TODO: handle NED->ENU transformation
-        print(f"NAV_STATUS: {msg.nav_state} - Offboard Status: {VehicleStatus.NAVIGATION_STATE_OFFBOARD} ")
-        self.nav_state = msg.nav_state
 
     def publish_trajectory_setpoint(self, x, y, z, yaw):
         '''
@@ -131,7 +159,6 @@ class PX4Controller(Node):
         msg.yaw = float(yaw)  # [-PI:PI]
         msg.timestamp = int(Clock().now().nanoseconds / 1000) # time in microseconds
         self.trajectory_setpoint_publisher.publish(msg)
-        # self.get_logger().info("Trajectory Setpoint sent")
     
     def publish_vehicle_command(self, 
         command, 
@@ -181,54 +208,13 @@ class PX4Controller(Node):
         self.get_logger().info("Disarm command send")
         self.armed = True
 
-    # def takeoff(self):
-    #     '''
-    #     Arm the vehicle and then takeoff.
-    #     '''
-    #     self.arm()
-
-    #     # self.publish_vehicle_command(
-    #     #     command = VehicleCommand.VEHICLE_CMD_DO_SET_PARAMETER,
-    #     #     param1  = COM_RCL_EXCEPT,
-    #     #     param2  = 4.0,
-    #     # )
-    #     # self.publish_vehicle_command(
-    #     #     command = VehicleCommand.VEHICLE_CMD_DO_SET_PARAMETER,
-    #     #     param1  = NAV_DLL_ACT,
-    #     #     param2  = 4.0,
-    #     # )
-    #     # self.publish_vehicle_command(
-    #     #     command = VehicleCommand.VEHICLE_CMD_DO_SET_PARAMETER,
-    #     #     param1  = NAV_RCL_ACT,
-    #     #     param2  = 4.0,
-    #     # )
-
-    #     self.publish_vehicle_command(
-    #         command = VehicleCommand.VEHICLE_CMD_NAV_TAKEOFF,
-    #         # param1  = 0.0,  # Minimum pitch (if airspeed sensor present), desired pitch without sensor
-    #         # param2  = 0.0,  # Empty
-    #         # param3  = 0.0,  # Empty
-    #         # param4  = 0.0,  # Yaw angle (if magnetometer present), ignored without magnetometer
-    #         # param5  = 0.0,  # Latitude
-    #         # param6  = 0.0,  # Longitude 
-    #         param7  = 5.0,  # Altitude 
-    #     )
-    #     self.get_logger().info("Takeoff command send")
-
-    # def land(self):
-    #     '''
-    #     Land the vehicle and then disarm.
-    #     '''
-    #     self.arm()
-    #     self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, 0.0)
-    #     self.get_logger().info("Takeoff command send")
 
 
 
 def main(args=None):
     rclpy.init(args=args)
-    print("Starting PX4Controller node...\n")
-    px4_controller = PX4Controller()
+    print("Starting PX4Comms node...\n")
+    px4_controller = PX4Comms()
     rclpy.spin(px4_controller)
 
     # Destroy the node explicitly
