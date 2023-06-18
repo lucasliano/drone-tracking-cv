@@ -7,11 +7,10 @@ from px4_msgs.msg import OffboardControlMode
 from px4_msgs.msg import TrajectorySetpoint
 from px4_msgs.msg import VehicleCommand
 
-from std_msgs import Bool
-
-
 # Imports personalizados
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
+from std_msgs.msg import Bool
+
 
 class PX4Comms(Node):
     def __init__(self):
@@ -118,14 +117,14 @@ class PX4Comms(Node):
         Este es el callback del subscriber para el topic '/tracker/joystick/setpoint'.
         '''
         if self.mode_joystick:
-            self.setpoints.insert(msg)
+            self.setpoints.insert(0, msg)
 
     def control_system_callback(self, msg):
         '''
         Este es el callback del subscriber para el topic '/tracker/control_system/setpoint'.
         '''
         if not self.mode_joystick:
-            self.setpoints.insert(msg)
+            self.setpoints.insert(0, msg)
 
     def alive_signal(self):
         '''
@@ -140,25 +139,6 @@ class PX4Comms(Node):
         msg.body_rate = False
         msg.timestamp = int(Clock().now().nanoseconds / 1000) # time in microseconds
         self.offboard_publisher.publish(msg)
-
-    def publish_trajectory_setpoint(self, x, y, z, yaw):
-        '''
-        Publica un nuevo setpoint en la trayectoria.
-        Los valores que se pueden settear son:
-
-        float32[3] position     # in meters
-        float32[3] velocity     # in meters/second
-        float32[3] acceleration # in meters/second^2
-        float32[3] jerk         # in meters/second^3 (for logging only)
-
-        float32 yaw             # euler angle of desired attitude in radians -PI..+PI
-        float32 yawspeed        # angular velocity around NED frame z-axis in radians/second
-        '''
-        msg = TrajectorySetpoint()
-        msg.position = [float(x), float(y), float(-z)] 
-        msg.yaw = float(yaw)  # [-PI:PI]
-        msg.timestamp = int(Clock().now().nanoseconds / 1000) # time in microseconds
-        self.trajectory_setpoint_publisher.publish(msg)
     
     def publish_vehicle_command(self, 
         command, 

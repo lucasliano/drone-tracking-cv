@@ -11,7 +11,10 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
     ],
-    install_requires=['setuptools'],
+    install_requires=[
+        'setuptools',
+        'keyboard',     # Used in joystick
+    ],
     zip_safe=True,
     maintainer='Lucas Liaño',
     maintainer_email='lliano@frba.utn.edu.ar',
