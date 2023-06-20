@@ -4,18 +4,15 @@ from rclpy.node import Node
 from rclpy.clock import Clock
 
 from px4_msgs.msg import TrajectorySetpoint
-from px4_msgs.msg import VehicleLocalPosition
-
-
-
 
 # Imports personalizados
 import os
-# import keyboard
-# import pygame
+from px4_msgs.msg import VehicleLocalPosition
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 from std_msgs.msg import Bool
 import numpy as np
+import time
+from tracker.drone_model import DroneModel
 
 
 class DroneJoystick(Node):
@@ -46,6 +43,7 @@ class DroneJoystick(Node):
 
     def __init__(self):
         super().__init__('DroneJoystick')
+        self.model = DroneModel(plot=False)
 
         # --- Definimos un perfil para settear la calidad de servicio ---
         qos_profile = QoSProfile(
@@ -67,33 +65,24 @@ class DroneJoystick(Node):
             qos_profile = qos_profile #10
         )
 
-        # --- Inicializamos los subscribers ---
-        self.pos_sub = self.create_subscription(
-            msg_type    = VehicleLocalPosition,
-            topic       = '/fmu/out/vehicle_local_position',
-            callback    = self.local_pos_callback,
-            qos_profile = qos_profile
+        # We request a takeoff
+        self.model.pos_setpoint.x = 0
+        self.model.pos_setpoint.y = 0
+        self.model.pos_setpoint.z = 2
+        self.model.heading = 0
+
+        self.publish_trajectory_setpoint(
+            x   = self.model.pos_setpoint.x,
+            y   = self.model.pos_setpoint.y,
+            z   = self.model.pos_setpoint.z,
+            yaw = self.model.heading,
         )
-        self.pos_skip_counter = 0
+        self.get_logger().info("Takeoff Requested")
 
 
         # TODO: Se deben hacer tareas que no sean bloqueantes. No hay scheduler.
         # --- Configuración TASK 1 ---
         self.timer_main_task = self.create_timer(0.1 , self.main_task)
-
-    def local_pos_callback(self, msg):
-        '''
-        Este es el callback del subscriber para el topic '/fmu/out/vehicle_local_position'.
-        Lo único que hace es meterlo en una fifo.
-        '''
-        self.get_logger().error('No se esta printeando el local_pos_callback')
-        return
-        if self.pos_skip_counter == 0:
-            self.get_logger().info(f'Position: [{round(msg.x,3)}, {round(msg.y,3)}, {-round(msg.z,3)}]m - Heading: [{round(msg.heading,3)}]rad')
-            self.get_logger().info(f'Velocity: [{round(msg.vx,3)}, {round(msg.vy,3)}, {-round(msg.vz,3)}]m/s')
-            self.get_logger().info(f'Acceleration: [{round(msg.ax,3)}, {round(msg.ay,3)}, {-round(msg.az,3)}]m/s²')
-        self.pos_skip_counter = self.pos_skip_counter + 1
-        self.pos_skip_counter = self.pos_skip_counter % 10
 
     def publish_trajectory_setpoint(self, x, y, z, yaw):
         '''
@@ -122,100 +111,41 @@ class DroneJoystick(Node):
         key = input('Select key and then press enter:')
         if key == 'w':
             # Go Forward
-            self.publish_trajectory_setpoint(
-                x   = 0,
-                y   = 1,
-                z   = 2,
-                yaw = 0,
-            )
+            self.model.pos_setpoint.x = self.model.pos_setpoint.x + 0.5
         elif key == 's':
             # Go Backward
-            self.publish_trajectory_setpoint(
-                x   = 0,
-                y   = -1,
-                z   = 2,
-                yaw = 0,
-            )
+            self.model.pos_setpoint.x = self.model.pos_setpoint.x - 0.5
         elif key == 'a':
             # Go Left
-            self.publish_trajectory_setpoint(
-                x   = -1,
-                y   = 0,
-                z   = 2,
-                yaw = 0,
-            )
+            self.model.pos_setpoint.y = self.model.pos_setpoint.y + 0.5
         elif key == 'd':
             # Go Right
-            self.publish_trajectory_setpoint(
-                x   = 1,
-                y   = 0,
-                z   = 2,
-                yaw = 0,
-            )
+            self.model.pos_setpoint.y = self.model.pos_setpoint.y - 0.5
         elif key == 'z':
             # Go Up
-            self.publish_trajectory_setpoint(
-                x   = 0,
-                y   = 0,
-                z   = 3,
-                yaw = 0,
-            )
+            self.model.pos_setpoint.z = self.model.pos_setpoint.z + 0.5
         elif key == 'x':
             # Go Down
-            self.publish_trajectory_setpoint(
-                x   = 0,
-                y   = 0,
-                z   = 1,
-                yaw = 0,
-            )
+            self.model.pos_setpoint.z = self.model.pos_setpoint.z - 0.5
         elif key == 'q':
             # Turn CCW
-            self.publish_trajectory_setpoint(
-                x   = 0,
-                y   = 0,
-                z   = 2,
-                yaw = np.pi/2,
-            )
+            self.model.yaw_setpoint = self.model.yaw_setpoint + np.pi/12
         elif key == 'e':
             # Turn CW
-            self.publish_trajectory_setpoint(
-                x   = 0,
-                y   = 0,
-                z   = 2,
-                yaw = -np.pi/2,
-            )
+            self.model.yaw_setpoint = self.model.yaw_setpoint - np.pi/12
         elif key == ' ':
             # Takeoff
-            self.publish_trajectory_setpoint(
-                x   = 0,
-                y   = 0,
-                z   = 2,
-                yaw = 0,
-            )
-        # try:
-        #     if keyboard.is_pressed('w'):
-        #         print('w')
-        #     elif keyboard.is_pressed('s'):
-        #         print('s')
-        #     elif keyboard.is_pressed('a'):
-        #         print('a')
-        #     elif keyboard.is_pressed('d'):
-        #         print('d')
-        #     elif keyboard.is_pressed('z'):
-        #         print('z')
-        #     elif keyboard.is_pressed('x'):
-        #         print('x')
-        #     elif keyboard.is_pressed('q'):
-        #         print('q')
-        #     elif keyboard.is_pressed('e'):
-        #         print('e')
-        #     elif keyboard.is_pressed('space'):
-        #         print('space')
-        # except Exception as ex:
-        #     print('ex')
-        #     pass
+            self.model.pos_setpoint.x = 0
+            self.model.pos_setpoint.y = 0
+            self.model.pos_setpoint.z = 2
+            self.model.heading = 0
 
-
+        self.publish_trajectory_setpoint(
+            x   = self.model.pos_setpoint.x,
+            y   = self.model.pos_setpoint.y,
+            z   = self.model.pos_setpoint.z,
+            yaw = self.model.yaw_setpoint,
+        )
 
 def main(args=None):
     rclpy.init(args=args)
