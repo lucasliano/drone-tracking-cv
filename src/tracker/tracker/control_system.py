@@ -121,14 +121,11 @@ class DroneControlSystem(Node):
         
         self.model.update_setpoints(self.target_center_offset, self.target_depth)
 
-        new_stp = self.model.pos_setpoint
-        new_yaw = self.model.heading_setpoint
-
         self.publish_trajectory_setpoint(
-            x   = new_stp[0],
-            y   = new_stp[1],
-            z   = new_stp[2],
-            yaw = new_yaw,
+            x   = self.model.pos_setpoint.x,
+            y   = self.model.pos_setpoint.y,
+            z   = self.model.pos_setpoint.z,
+            yaw = self.model.yaw_setpoint,
         )
         
 

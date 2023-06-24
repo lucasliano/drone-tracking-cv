@@ -138,7 +138,7 @@ class DroneJoystick(Node):
             self.model.pos_setpoint.x = 0
             self.model.pos_setpoint.y = 0
             self.model.pos_setpoint.z = 2
-            self.model.heading = 0
+            self.model.yaw_setpoint = np.pi/2
 
         self.publish_trajectory_setpoint(
             x   = self.model.pos_setpoint.x,
