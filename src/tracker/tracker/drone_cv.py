@@ -72,7 +72,7 @@ class ImageSubscriber(Node):
                 fov_x = 1.047198
                 focal_lenght = 320/2 * np.tan(fov_x/2)
                 alpha = np.arctan((320/2 - cx)/focal_lenght)
-                yaw = f'{alpha * 180/np.pi}'
+                yaw = alpha * 180/np.pi
 
                 yaw_msg = Float32()
                 yaw_msg.data = yaw
