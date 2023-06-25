@@ -2,7 +2,7 @@ import os
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from std_msgs.msg import String
+from std_msgs.msg import String, Float32
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
@@ -36,9 +36,9 @@ class ImageSubscriber(Node):
             10
         )
 
-        self.center_pub = self.create_publisher(
-            String,
-            '/control/center',
+        self.yaw_pub = self.create_publisher(
+            Float32,
+            '/tracker/cv/yaw',
             10
         )
 
@@ -67,11 +67,15 @@ class ImageSubscriber(Node):
                 moments = cv2.moments(max_contour)
                 cx = int(moments["m10"] / moments["m00"])
                 cy = int(moments["m01"] / moments["m00"])
-                center = f"({cx},{cy})"
+                # --- Calculo de yaw ---
+                fov_x = 1.047198
+                focal_lenght = 320/2 * np.tan(fov_x/2)
+                alpha = np.arctan((320/2 - cx)/focal_lenght)
+                yaw = f'{alpha * 180/np.pi}'
 
-                center_msg = String()
-                center_msg.data = center
-                self.center_pub.publish(center_msg)
+                yaw_msg = Float32()
+                yaw_msg.data = yaw
+                self.yaw_pub.publish(yaw_msg)
 
 
     def green_mask(self, img_hsv):
