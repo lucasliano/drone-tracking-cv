@@ -6,6 +6,7 @@ from std_msgs.msg import String, Float32
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class ImageSubscriber(Node):
@@ -86,21 +87,24 @@ class ImageSubscriber(Node):
   
 
     def depth_callback(self, data):
-        current_frame = self.br.imgmsg_to_cv2(data)
+        current_frame = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
         self.process_depth(current_frame)
     
 
     def process_depth(self, frame):
-        img_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        depth_array = np.array(frame, dtype=np.float32)
+        imgplot = plt.imshow(depth_array)
+        plt.pause(1)
+        # img_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        mask = self.grey_mask(img_hsv)
+        # mask = self.grey_mask(img_hsv)
 
-        # Calculate the mean color of the masked region
-        mean_color = tuple(int(value) for value in cv2.mean(img_hsv, mask=mask)[:3])
+        # # Calculate the mean color of the masked region
+        # mean_color = tuple(int(value) for value in cv2.mean(img_hsv, mask=mask)[:3])
 
-        center_msg = String()
-        center_msg.data = str(mean_color)
-        self.center_pub.publish(center_msg)
+        # center_msg = String()
+        # center_msg.data = str(mean_color)
+        # self.center_pub.publish(center_msg)
 
 
     def grey_mask(self, img_hsv):
