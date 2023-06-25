@@ -26,6 +26,7 @@ setup(
             'comms = tracker.comms:main',
             'joystick = tracker.joystick:main',
             'control = tracker.control_system:main',
+            'cv_tracker = tracker.drone_cv:main',
         ],
     },
 )
