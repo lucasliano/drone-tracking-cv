@@ -10,11 +10,17 @@ from px4_msgs.msg import VehicleCommand
 # Imports personalizados
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 from std_msgs.msg import Bool
+from px4_msgs.msg import VehicleLocalPosition
+import matplotlib.pyplot as plt
+from tracker.drone_model import DroneModel
+import time
+
 
 
 class PX4Comms(Node):
     def __init__(self):
         super().__init__('PX4Comms')
+        self.model = DroneModel()
 
         # --- Propiedades del drone ---
         self.armed = False
@@ -68,6 +74,14 @@ class PX4Comms(Node):
             qos_profile = qos_profile
         )
 
+        self.pos_sub = self.create_subscription(
+            msg_type    = VehicleLocalPosition,
+            topic       = '/fmu/out/vehicle_local_position',
+            callback    = self.local_pos_callback,
+            qos_profile = qos_profile
+        )
+        self.pos_skip_counter = 0
+
         # --- Configuración TASK 1 ---
         self.timer_task1 = self.create_timer(0.25 , self.task1) # Freq = 4Hz
         self._task1_counter = 0
@@ -77,33 +91,40 @@ class PX4Comms(Node):
 
 
     def task1(self):
-        if (self._task1_counter == 10):
-            # Change to Offboard mode after 10 setpoints
-            self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_DO_SET_MODE, 1., 6.)
-            # Arm the vehicle
-            self.arm()
-
-        # Offboard_control_mode needs to be paired with trajectory_setpoint
         self.alive_signal()
 
-        # stop the counter after reaching 11
-        if (self._task1_counter < 11):
-            self._task1_counter += 1
-
     def task2(self):
-        if self.armed and len(self.setpoints) != 0:
-            new_setpoint = self.setpoints.pop()
-            self.trajectory_setpoint_publisher.publish(new_setpoint)
-            self.get_logger().info("Trajectory Setpoint sent")
+        if len(self.setpoints) != 0:
+            if not self.armed:
+                # Change to Offboard mode after 10 setpoints
+                self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_DO_SET_MODE, 1., 6.)
+                # Arm the vehicle
+                self.arm()
+                # Wait for PX4 to respond
+                time.sleep(3)
+            else:
+                new_setpoint = self.setpoints.pop()
+                self.trajectory_setpoint_publisher.publish(new_setpoint)
+                self.get_logger().info("Trajectory Setpoint sent")
 
-            
-            # TODO: Esto iria en el joystick y en el control_system
-            # self.publish_trajectory_setpoint(
-            #     x   = new_setpoint.x,
-            #     y   = new_setpoint.y,
-            #     z   = new_setpoint.z,
-            #     yaw = new_setpoint.yaw,
-            # )
+                # TODO: Esto iria en el joystick y en el control_system
+                # self.publish_trajectory_setpoint(
+                #     x   = new_setpoint.x,
+                #     y   = new_setpoint.y,
+                #     z   = new_setpoint.z,
+                #     yaw = new_setpoint.yaw,
+                # )
+
+    def local_pos_callback(self, msg):
+        '''
+        Este es el callback del subscriber para el topic '/fmu/out/vehicle_local_position'.
+        Lo único que hace es meterlo en una fifo.
+        '''
+        self.model.pos_axs[0].plot(msg.timestamp, round(msg.x, 3), color='b', marker = 'x')
+        self.model.pos_axs[1].plot(msg.timestamp, round(msg.y, 3), color='g', marker = 'x')
+        self.model.pos_axs[2].plot(msg.timestamp, -1*round(msg.z, 3), color='r', marker = 'x')
+        self.model.pos_axs[3].plot(msg.timestamp, round(msg.heading, 3), color='orange', marker = 'x')
+        plt.pause(0.001)
 
     def mode_callback(self, msg):
         '''
