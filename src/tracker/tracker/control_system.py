@@ -1,16 +1,9 @@
-# Imports que vienen en el ejemplo
 import rclpy
 from rclpy.node import Node
 from rclpy.clock import Clock
-
 from px4_msgs.msg import TrajectorySetpoint
-from px4_msgs.msg import VehicleLocalPosition
+from px4_msgs.msg import VehicleLocalPosition, OffsetMsg
 
-
-
-
-# Imports personalizados
-import os
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, QoSDurabilityPolicy
 from std_msgs.msg import Bool
 from tracker.drone_model import DroneModel
@@ -22,12 +15,10 @@ class DroneControlSystem(Node):
         super().__init__('DroneControlSystem')
         # --- Control System Variables ---
         self.model = DroneModel()
-        self.fs = 1000
-        self.target_center_offset = {
-            'x':        0,
-            'y':        0,
-        }
-        self.target_depth = 0
+        self.fs = 10
+        self.yaw_offset = 0
+        self.pitch_offset = 0
+        self.distance_to_targe = 0
 
 
         # --- Definimos un perfil para settear la calidad de servicio ---
@@ -41,7 +32,7 @@ class DroneControlSystem(Node):
         # --- Inicializamos los publishers ---
         self.setpoint_publisher = self.create_publisher(
             msg_type    = TrajectorySetpoint,
-            topic       = "/tracker/joystick/setpoint",
+            topic       = "/tracker/control_system/setpoint",
             qos_profile = qos_profile #10
         )
 
@@ -53,48 +44,37 @@ class DroneControlSystem(Node):
             qos_profile = qos_profile
         )
 
-        # FIXME: Hay que cambiar el msg_type de ambos subs!
-        self.center_sub = self.create_subscription(
-            msg_type    = Bool,
+        self.offset_sub = self.create_subscription(
+            msg_type    = OffsetMsg,
             topic       = '/tracker/opencv/offset_to_center',
-            callback    = self.local_pos_callback,
-            qos_profile = qos_profile
-        )
-        self.depth_sub = self.create_subscription(
-            msg_type    = Bool,
-            topic       = '/tracker/opencv/depth',
-            callback    = self.local_pos_callback,
-            qos_profile = qos_profile
+            callback    = self.sensor_callback,
+            qos_profile = 10
         )
 
         # --- Configuración TASK 1 ---
         self.timer_main_task = self.create_timer(1/self.fs , self.main_task)
 
-    def center_callback(self, msg):
-        pass
-        self.target_center_offset['x'] = 0
-        self.target_center_offset['y'] = 0
-
-    def depth_callback(self, msg):
-        pass
-        self.target_depth = 0
+    def sensor_callback(self, msg):
+        self.yaw_offset = msg.yaw
+        self.pitch_offset = msg.pitch
+        self.distance_to_targe = msg.distance
 
     def local_pos_callback(self, msg):
         '''
         Este es el callback del subscriber para el topic '/fmu/out/vehicle_local_position'.
         Lo único que hace es meterlo en una fifo.
         '''
-        self.model.pos[0] = round(msg.x, 3)
-        self.model.pos[1] = round(msg.y, 3)
-        self.model.pos[2] = -1 * round(msg.z, 3)
+        self.model.pos.x = round(msg.x, 3)
+        self.model.pos.y = round(msg.y, 3)
+        self.model.pos.z = -1 * round(msg.z, 3)
 
-        self.model.vel[0] = round(msg.vx, 3)
-        self.model.vel[1] = round(msg.vy, 3)
-        self.model.vel[2] = -1 * round(msg.vz, 3)
+        self.model.vel.x = round(msg.vx, 3)
+        self.model.vel.y = round(msg.vy, 3)
+        self.model.vel.z = -1 * round(msg.vz, 3)
 
-        self.model.acc[0] = round(msg.ax, 3)
-        self.model.acc[1] = round(msg.ay, 3)
-        self.model.acc[2] = -1 * round(msg.az, 3)
+        self.model.acc.x = round(msg.ax, 3)
+        self.model.acc.y = round(msg.ay, 3)
+        self.model.acc.z = -1 * round(msg.az, 3)
 
         self.model.heading = round(msg.heading, 3)
 
@@ -111,6 +91,7 @@ class DroneControlSystem(Node):
         float32 yaw             # euler angle of desired attitude in radians -PI..+PI
         float32 yawspeed        # angular velocity around NED frame z-axis in radians/second
         '''
+        self.get_logger().info(f"Desired X: {round(x,3)} - Z: {round(z,3)} - Yaw: {round(yaw,3)} ")
         msg = TrajectorySetpoint()
         msg.position = [float(x), float(y), float(-z)] 
         msg.yaw = float(yaw)  # [-PI:PI]
@@ -119,7 +100,11 @@ class DroneControlSystem(Node):
 
     def main_task(self):
         
-        self.model.update_setpoints(self.target_center_offset, self.target_depth)
+        self.model.update_setpoints(
+            self.yaw_offset,
+            self.pitch_offset,
+            self.distance_to_targe,
+        )
 
         self.publish_trajectory_setpoint(
             x   = self.model.pos_setpoint.x,

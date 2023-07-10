@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 
@@ -53,26 +54,22 @@ class DroneModel():
             ax.grid(which='major', alpha=0.5)
 
         return pos_fig, pos_axs
+    
+    def calculate_z(self, pitch, distance):
+        # Calcular distancia verticar el función del pitch
+        z_offset = np.sin(pitch)*distance
+        return z_offset
 
-    def calculate_offset(self, center_offset, target_depth):
-        x_offset    = center_offset['x']
-        y_offset    = center_offset['y']
-        depth       = target_depth
-
-        # FIXME:    Acá tenemos que hacer los cálculos pertinentes para poder convertir 
-        #           de pixeles y profundidad a offset de yaw, z e x. 
-
-        # NOTE:     Tener en cuenta que moverse en +x es ir hacia adelante.
-
-        yaw = 1
-        z   = 1
-        x   = 1
+    def calculate_offset(self, offset_yaw, offset_pitch, distance_to_target):
+        yaw = offset_yaw
+        z   = self.calculate_z(offset_pitch, distance_to_target)
+        x   = distance_to_target - 2.5 # Queremos estar a 2.5m de distancia del objetivo
 
         return yaw, z, x
 
-    def update_setpoints(self, target_center_offset: dict, target_depth: float):
+    def update_setpoints(self, offset_yaw : float, offset_pitch : float, distance_to_target : float):
 
-        yaw_offset, z_offset, x_offset = self.calculate_offset(target_center_offset, target_depth)
+        yaw_offset, z_offset, x_offset = self.calculate_offset(offset_yaw, offset_pitch, distance_to_target)
 
         self.pos_setpoint.x = self.pos.x    + x_offset
         self.pos_setpoint.z = self.pos.z    + z_offset

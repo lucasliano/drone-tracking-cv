@@ -107,14 +107,6 @@ class PX4Comms(Node):
                 self.trajectory_setpoint_publisher.publish(new_setpoint)
                 self.get_logger().info("Trajectory Setpoint sent")
 
-                # TODO: Esto iria en el joystick y en el control_system
-                # self.publish_trajectory_setpoint(
-                #     x   = new_setpoint.x,
-                #     y   = new_setpoint.y,
-                #     z   = new_setpoint.z,
-                #     yaw = new_setpoint.yaw,
-                # )
-
     def local_pos_callback(self, msg):
         '''
         Este es el callback del subscriber para el topic '/fmu/out/vehicle_local_position'.

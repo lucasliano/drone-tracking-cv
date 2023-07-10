@@ -57,13 +57,16 @@ class DroneJoystick(Node):
         self.setpoint_publisher = self.create_publisher(
             msg_type    = TrajectorySetpoint,
             topic       = "/tracker/joystick/setpoint",
-            qos_profile = qos_profile #10
+            qos_profile = qos_profile
         )
         self.mode_publisher = self.create_publisher(
             msg_type    = Bool,
             topic       = "/tracker/joystick/mode",
-            qos_profile = qos_profile #10
+            qos_profile = qos_profile
         )
+
+        # Variable de configuración del modo de uso.
+        self.joystick_mode = True
 
         # We request a takeoff
         self.model.pos_setpoint.x = 0
@@ -105,47 +108,59 @@ class DroneJoystick(Node):
 
     def main_task(self):
         os.system('clear')
-        print(self.MSG)
+        if self.joystick_mode:
+            print(self.MSG)
 
-        #TODO: Cambiar a algo mejor.. nefasto todo..
-        key = input('Select key and then press enter:')
-        if key == 'w':
-            # Go Forward
-            self.model.pos_setpoint.x = self.model.pos_setpoint.x + 0.5
-        elif key == 's':
-            # Go Backward
-            self.model.pos_setpoint.x = self.model.pos_setpoint.x - 0.5
-        elif key == 'a':
-            # Go Left
-            self.model.pos_setpoint.y = self.model.pos_setpoint.y + 0.5
-        elif key == 'd':
-            # Go Right
-            self.model.pos_setpoint.y = self.model.pos_setpoint.y - 0.5
-        elif key == 'z':
-            # Go Up
-            self.model.pos_setpoint.z = self.model.pos_setpoint.z + 0.5
-        elif key == 'x':
-            # Go Down
-            self.model.pos_setpoint.z = self.model.pos_setpoint.z - 0.5
-        elif key == 'q':
-            # Turn CCW
-            self.model.yaw_setpoint = self.model.yaw_setpoint + np.pi/12
-        elif key == 'e':
-            # Turn CW
-            self.model.yaw_setpoint = self.model.yaw_setpoint - np.pi/12
-        elif key == ' ':
-            # Takeoff
-            self.model.pos_setpoint.x = 0
-            self.model.pos_setpoint.y = 0
-            self.model.pos_setpoint.z = 2
-            self.model.yaw_setpoint = np.pi/2
+            #TODO: Cambiar a algo mejor..
+            key = input('Select key and then press enter:')
+            if key == 'w':
+                # Go Forward
+                self.model.pos_setpoint.x = self.model.pos_setpoint.x + 0.5
+            elif key == 's':
+                # Go Backward
+                self.model.pos_setpoint.x = self.model.pos_setpoint.x - 0.5
+            elif key == 'a':
+                # Go Left
+                self.model.pos_setpoint.y = self.model.pos_setpoint.y - 0.5
+            elif key == 'd':
+                # Go Right
+                self.model.pos_setpoint.y = self.model.pos_setpoint.y + 0.5
+            elif key == 'z':
+                # Go Up
+                self.model.pos_setpoint.z = self.model.pos_setpoint.z + 0.5
+            elif key == 'x':
+                # Go Down
+                self.model.pos_setpoint.z = self.model.pos_setpoint.z - 0.5
+            elif key == 'q':
+                # Turn CCW
+                self.model.yaw_setpoint = self.model.yaw_setpoint - np.pi/12
+            elif key == 'e':
+                # Turn CW
+                self.model.yaw_setpoint = self.model.yaw_setpoint + np.pi/12
+            elif key == ' ':
+                # # Takeoff
+                # self.model.pos_setpoint.x = 0
+                # self.model.pos_setpoint.y = 0
+                # self.model.pos_setpoint.z = 2
+                # self.model.yaw_setpoint = np.pi/2
+                
+                self.joystick_mode = False
+                msg = Bool()
+                msg.data = bool(self.joystick_mode)
+                self.mode_publisher.publish(msg)
 
-        self.publish_trajectory_setpoint(
-            x   = self.model.pos_setpoint.x,
-            y   = self.model.pos_setpoint.y,
-            z   = self.model.pos_setpoint.z,
-            yaw = self.model.yaw_setpoint,
-        )
+            self.publish_trajectory_setpoint(
+                x   = self.model.pos_setpoint.x,
+                y   = self.model.pos_setpoint.y,
+                z   = self.model.pos_setpoint.z,
+                yaw = self.model.yaw_setpoint,
+            )
+        else:
+            input('Control system is Active. Press Enter to enter joystick mode.')
+            self.joystick_mode = True
+            msg = Bool()
+            msg.data = bool(self.joystick_mode)
+            self.mode_publisher.publish(msg)
 
 def main(args=None):
     rclpy.init(args=args)

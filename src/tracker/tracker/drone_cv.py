@@ -1,13 +1,13 @@
 import os
 import rclpy
 from rclpy.node import Node
+from px4_msgs.msg import OffsetMsg
 from sensor_msgs.msg import Image
-from std_msgs.msg import String, Float32
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 class ImageSubscriber(Node):
     def __init__(self):
@@ -15,11 +15,13 @@ class ImageSubscriber(Node):
 
         self.get_logger().info('Init Computer Vision')
 
+        qos_profile = 10
+
         self.image_sub = self.create_subscription(
             Image, 
             '/camera/image', 
             self.image_callback, 
-            10
+            qos_profile
         )
         self.image_sub # prevent unused variable warning
 
@@ -27,33 +29,88 @@ class ImageSubscriber(Node):
             Image,
             '/camera/depth_image',
             self.depth_callback,
-            10
+            qos_profile
         )
         self.depth_sub # prevent unused variable warning
 
-        self.distance_pub = self.create_publisher(
-            String,
-            '/control/distance',
-            10
+        self.offset_pub = self.create_publisher(
+            OffsetMsg,
+            '/tracker/opencv/offset_to_center',
+            qos_profile
         )
 
-        self.yaw_pub = self.create_publisher(
-            Float32,
-            '/tracker/cv/yaw',
-            10
-        )
+        # FIFOS
+        self.color_fifo = []
+        self.depth_fifo = []
+
+        # --- Configuración TASK 1 ---
+        self.timer_task = self.create_timer(0.01 , self.process_images)
 
         # Used to convert between ROS and OpenCV images
         self.br = CvBridge()
 
+        # Used to vectorize funcions
+        self.vmap = np.vectorize(self.map)
+
+        # Plot
+        self.fig, self.axs = plt.subplots(1,2)
+        plt.show(block=False)
+        self.axs[0].imshow(np.arange(100).reshape((10,10)), cmap=plt.cm.get_cmap('inferno'))
+        _sample_fig = self.axs[1].imshow(np.arange(100).reshape((10,10)) * 3.55/100, cmap=plt.cm.get_cmap('inferno'))
+        self.fig.colorbar(_sample_fig, use_gridspec=False, cax=make_axes_locatable(self.axs[1]).append_axes("right", size="5%", pad=0.05))
+        plt.pause(1)
+
+    def map(self, value):
+        # input [0.2, 3] - [0.7, 3.5]m
+
+        # Se aplica un mapeo considerando que un input de 1 representa 1.5m, y un input de 3 representa 3.5m
+        # 3.5m <= 3.0f
+        # 1.5m <= 1.0f
+        return value * 1 + 0.5 
 
     def image_callback(self, data):
         current_frame = self.br.imgmsg_to_cv2(data)
-        self.process_image(current_frame)
+        self.color_fifo.append(current_frame)
+
+    def depth_callback(self, data):
+        current_frame = self.br.imgmsg_to_cv2(data, desired_encoding='32FC1')
+        self.depth_fifo.append(current_frame)
+
+    def process_images(self):
+        if len(self.color_fifo) > 1 and len(self.depth_fifo):
+            # Sacamos las dos imagenes de la fifo
+            current_color = self.color_fifo.pop()
+            current_depth = self.depth_fifo.pop()
+
+            # Procesamos las imagenes
+            output_color, yaw, pitch, center = self.process_color(current_color)
+            output_depth = self.process_depth(current_depth)
+
+            # Publicamos las imagenes si se detectó un objeto
+            if center:
+                distance = output_depth[center[1],center[0]]
+                self.get_logger().info(f'Yaw: {round(yaw,3)} - pitch: {round(pitch,3)} - Distance: {round(distance,3)}m')
+            
+                msg = OffsetMsg()
+                msg.yaw = yaw
+                msg.pitch = pitch
+                msg.distance = distance
+                self.offset_pub.publish(msg)
+
+            # Plotteamos la camara de color y la de profundidad procesadas
+            self.axs[0].clear()
+            self.axs[1].clear()
+
+            self.axs[0].imshow(output_color)
+            self.axs[1].imshow(output_depth, cmap=plt.cm.get_cmap('inferno'))
+
+            self.axs[0].set(title = 'Depth Image')
+            self.axs[1].set(title = 'Normalized Image')
+            plt.pause(0.1)
 
 
-    def process_image(self, frame):
-        img_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    def process_color(self, current_frame):
+        img_hsv = cv2.cvtColor(current_frame, cv2.COLOR_BGR2HSV)
 
         mask = self.green_mask(img_hsv)
         mask = cv2.bilateralFilter(mask, 9, 75, 75)
@@ -68,83 +125,43 @@ class ImageSubscriber(Node):
                 moments = cv2.moments(max_contour)
                 cx = int(moments["m10"] / moments["m00"])
                 cy = int(moments["m01"] / moments["m00"])
+
                 # --- Calculo de yaw ---
                 fov_x = 1.047198
                 focal_lenght = 320/2 * np.tan(fov_x/2)
                 alpha = np.arctan((320/2 - cx)/focal_lenght)
                 yaw = alpha * 180/np.pi
 
-                yaw_msg = Float32()
-                yaw_msg.data = yaw
-                self.yaw_pub.publish(yaw_msg)
+                # --- Calculo de pitch ---
+                fov_y = 1.047198
+                focal_lenght = 240/2 * np.tan(fov_y/2)
+                alpha = np.arctan((240/2 - cy)/focal_lenght)
+                pitch = alpha * 180/np.pi
 
+                # --- Procesamiento current_frame ---
+                intermediate_frame = cv2.circle(current_frame, (cx, cy), 5, (0, 0, 255), -1)
+                x,y,w,h = cv2.boundingRect(max_contour)
+                output_frame = cv2.rectangle(intermediate_frame, (x,y), (x+w, y+h), (0, 0, 255), 3)
+
+                return output_frame, yaw, pitch, (cx,cy)
+
+        return current_frame, None, None, None
+
+
+    def process_depth(self, current_frame):
+        # Clippeamos la imagen
+        normalized_img = np.clip(current_frame, 0.2, 3)
+
+        # Aplicar la función map a cada valor del arreglo
+        depth_img = self.vmap(normalized_img)
+
+        return depth_img
 
     def green_mask(self, img_hsv):
         lower_green = np.array([40, 40, 40])
         upper_green = np.array([70, 255, 255])
         mask = cv2.inRange(img_hsv, lower_green, upper_green)
         return mask
-  
-
-    def depth_callback(self, data):
-        current_frame = self.br.imgmsg_to_cv2(data, desired_encoding='passthrough')
-        self.process_depth(current_frame)
-    
-
-    # def process_depth(self, frame):
-    #     depth_array = np.array(frame, dtype=np.float32)
-    #     imgplot = plt.imshow(depth_array)
-    #     plt.pause(1)
-        # img_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-        # mask = self.grey_mask(img_hsv)
-
-        # # Calculate the mean color of the masked region
-        # mean_color = tuple(int(value) for value in cv2.mean(img_hsv, mask=mask)[:3])
-
-        # center_msg = String()
-        # center_msg.data = str(mean_color)
-        # self.center_pub.publish(center_msg)
-    
-    def process_depth(self, frame):
-        img_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-        mask = self.green_mask(img_hsv)
-        mask = cv2.bilateralFilter(mask, 9, 75, 75)
-        mask = cv2.GaussianBlur(mask, (5, 5), 0)
-
-        contours, hierachy = cv2.findContours(
-            mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
-        if len(contours) != 0:
-            max_contour = max(contours, key=cv2.contourArea)
-            if cv2.contourArea(max_contour) > 250:
-                moments = cv2.moments(max_contour)
-                cx = int(moments["m10"] / moments["m00"])
-                cy = int(moments["m01"] / moments["m00"])
-                dist, angle = self.calculate_distance(mask, cx, cy)
-                self.get_logger().info(f"dist = {dist} | angle = {angle}")
-
-
-    def calculate_distance(image, pixel_x, pixel_y):
-        # Convertir la imagen a escala de grises
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        # Calcula la distancia mínima y máxima basada en los valores de clip
-        clip_near = 0.05  # Distancia mínima de clip en metros
-        clip_far = 3.0  # Distancia máxima de clip en metros
-
-        # Calcula la distancia entre la cámara y el objeto en función de la resolución y el FOV
-        fov_horizontal = 1.047198  # Campo de visión horizontal en radianes
-        image_width = image.shape[1]  # Ancho de la imagen en píxeles
-
-        # Calcula el ángulo horizontal en radianes correspondiente al píxel seleccionado
-        angle = (pixel_x / image_width - 0.5) * fov_horizontal
-
-        # Calcula la distancia utilizando la fórmula trigonométrica
-        distance = (clip_far - clip_near) / (2 * np.tan(fov_horizontal / 2)) * np.cos(angle) + (clip_near + clip_far) / 2
-
-        return distance, angle
 
 
 def main(args=None):
